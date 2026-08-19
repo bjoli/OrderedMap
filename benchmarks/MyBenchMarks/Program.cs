@@ -89,6 +89,14 @@ public class IntMapBenchmarks
         foreach (var k in _allKeys) map.Set(k, k);
         return map.ToPersistent();
     }
+
+    [Benchmark]
+    public OrderedMap<int, int> Build_OrderedMap_Builder()
+    {
+        var builder = new OrderedMapBuilder<int, int>(_allKeys.Length);
+        foreach (var k in _allKeys) builder.Add(k, k);
+        return builder.Build();
+    }
     
     [Benchmark]
     public ImmutableSortedDictionary<int, int> Build_ImmSortedDict_Builder()
