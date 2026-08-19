@@ -1,0 +1,8 @@
+# .NET Core
+bin/
+obj/
+BenchmarkDotNet.Artifacts/
+.idea/
+.vs/
+*.user
+*.suo

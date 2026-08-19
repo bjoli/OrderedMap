@@ -1,0 +1,36 @@
+* PersistentMap
+
+A high-performance, persistent (Copy-on-Write) B+ Tree implemented in C#. 
+
+It is designed for zero-overhead reads, SIMD-accelerated key routing, and allocation-free range queries. It supports both fully immutable usage and "Transient" mode for high-throughput bulk mutations. The primary use case is for when editing operations are in bulk. Updating single elements many times will fail to distinguish this collection from other more mature collections. Bulk writes are very fast using transient interfaces, random reads are fastish depending on key type and entropy, Sequential reads and min/max queries are very fast. 
+
+** Features
+- *Copy-on-Write Semantics*: Thread-safe, immutable tree states. Modifying the tre yields a new version while sharing unmodified nodes.
+- *Transient Mode*: Perform bulk mutations in-place with standard mutable performance, then freeze it into a =PersistentMap= in $O(1)$ time.
+- *Linear Time Set Operations*: Sort-merge based =Intersect=, =Except=, and =SymmetricExcept= execute in $O(N+M)$ time using lazy evaluation.
+
+** Benchmarks
+
+Performance compares favorably against `ImmutableSortedDictionary<K, V>` and `LanguageExt.Map<K, V>`. Below is a summary of the operations (N=100,000, `short` job):
+
+*** String Keys (Length=50)
+
+| Operation | PersistentMap / TransientMap | ImmutableSortedDictionary / Builder | LanguageExt.Map |
+|-----------|------------------------------|-------------------------------------|-----------------|
+| *Build*   | 114.7 ms / 59.1 ms           | 113.2 ms / 72.2 ms                  | 113.1 ms        |
+| *Read*    | 4.09 ms                      | 5.26 ms                             | 4.98 ms         |
+| *Update*  | 9.83 ms / 5.14 ms            | 8.75 ms / 6.65 ms                   | 9.21 ms         |
+| *Remove*  | 10.78 ms / 5.96 ms           | 9.21 ms / 7.56 ms                   | 9.43 ms         |
+| *Iterate* | 0.16 ms                      | 0.64 ms                             | 0.71 ms         |
+
+*** Integer Keys (AVX-Accelerated)
+
+| Operation | PersistentMap / TransientMap | ImmutableSortedDictionary / Builder | LanguageExt.Map |
+|-----------|------------------------------|-------------------------------------|-----------------|
+| *Build*   | 12.6 ms / 3.17 ms            | 27.5 ms / 7.28 ms                   | 25.1 ms         |
+| *Read*    | 0.34 ms                      | 0.88 ms                             | 1.42 ms         |
+| *Update*  | 2.00 ms / 0.59 ms            | 3.33 ms / 2.10 ms                   | 3.06 ms         |
+| *Remove*  | 2.18 ms / 0.75 ms            | 3.36 ms / 2.04 ms                   | 3.37 ms         |
+| *Iterate* | 0.12 ms                      | 0.61 ms                             | 0.31 ms         |
+
+The generic B+Tree leverages hardware intrinsics (AVX2/AVX512) for primitive numeric type searches and falls back to an optimized binary search for strings, resulting in significant memory savings (up to 40x less allocations during builds) and speedups across the board.
