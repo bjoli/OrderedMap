@@ -26,6 +26,18 @@ public sealed class OrderedMapBuilder<TK, TV>
         _items.Add(new KeyValuePair<TK, TV>(key, value));
     }
 
+    public void AddRange(IEnumerable<KeyValuePair<TK, TV>> range)
+    {
+        _items.AddRange(range);
+    }
+
+    /// <summary>
+    ///     How many pairs have been appended. A key appended twice is counted twice: duplicates
+    ///     are resolved by <see cref="Build" />, last one winning, so this is the number of
+    ///     appends rather than the size of the map being built.
+    /// </summary>
+    public int Count => _items.Count;
+
     public OrderedMap<TK, TV> Build()
     {
         if (_items.Count == 0)
