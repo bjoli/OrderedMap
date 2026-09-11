@@ -14,7 +14,7 @@ public abstract class BaseOrderedMap<TK, TV> : IEnumerable<KeyValuePair<TK, TV>>
     protected BaseOrderedMap(Node<TK> root, IComparer<TK> comparer, int count)
     {
         Root = root ?? throw new ArgumentNullException(nameof(root));
-        Comparer = comparer ?? Comparer<TK>.Default;
+        Comparer = comparer ?? DefaultOrder.For<TK>();
         Count = count;
     }
 
@@ -40,13 +40,13 @@ public abstract class BaseOrderedMap<TK, TV> : IEnumerable<KeyValuePair<TK, TV>>
     {
         // Start with an empty leaf owned by None so the first write triggers CoW.
         var emptyRoot = new LeafNode<TK, TV>(OwnerId.None);
-        return new OrderedMap<TK, TV>(emptyRoot, comparer ?? Comparer<TK>.Default, 0);
+        return new OrderedMap<TK, TV>(emptyRoot, comparer ?? DefaultOrder.For<TK>(), 0);
     }
 
     public static TransientOrderedMap<TK, TV> CreateTransient(IComparer<TK>? comparer = null)
     {
         var emptyRoot = new LeafNode<TK, TV>(OwnerId.None);
-        return new TransientOrderedMap<TK, TV>(emptyRoot, comparer ?? Comparer<TK>.Default, 0);
+        return new TransientOrderedMap<TK, TV>(emptyRoot, comparer ?? DefaultOrder.For<TK>(), 0);
     }
     
     

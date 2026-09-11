@@ -83,7 +83,7 @@ public sealed class OrderedMap<TK, TV> : BaseOrderedMap<TK, TV>, IEquatable<Orde
         // instead of modifying it in place.
         var emptyRoot = new LeafNode<TK, TV>(default(OwnerId));
     
-        return new OrderedMap<TK, TV>(emptyRoot, comparer ?? Comparer<TK>.Default, 0);
+        return new OrderedMap<TK, TV>(emptyRoot, comparer ?? DefaultOrder.For<TK>(), 0);
     }
 
     public OrderedMap<TK, TV> Remove(TK key)

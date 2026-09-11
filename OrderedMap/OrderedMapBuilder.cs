@@ -12,13 +12,13 @@ public sealed class OrderedMapBuilder<TK, TV>
     public OrderedMapBuilder(IComparer<TK>? comparer = null)
     {
         _items = new List<KeyValuePair<TK, TV>>();
-        _comparer = comparer ?? Comparer<TK>.Default;
+        _comparer = comparer ?? DefaultOrder.For<TK>();
     }
 
     public OrderedMapBuilder(int capacity, IComparer<TK>? comparer = null)
     {
         _items = new List<KeyValuePair<TK, TV>>(capacity);
-        _comparer = comparer ?? Comparer<TK>.Default;
+        _comparer = comparer ?? DefaultOrder.For<TK>();
     }
 
     public void Add(TK key, TV value)
