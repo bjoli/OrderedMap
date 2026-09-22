@@ -230,14 +230,14 @@ public static class TransientOrderedMapModule
     }
 
     public static TState Fold<TK, TV, TState>(
-        Func<TState, TK, TV, TState> folder,
+        Func<TK, TV, TState, TState> folder,
         TState state,
         TransientOrderedMap<TK, TV> map)
     {
         var currentState = state;
         foreach (var kvp in map)
         {
-            currentState = folder(currentState, kvp.Key, kvp.Value);
+            currentState = folder(kvp.Key, kvp.Value, currentState);
         }
         return currentState;
     }

@@ -7,8 +7,8 @@ namespace OrderedMap;
 ///     The static interface to <see cref="OrderedMap{TK, TV}" />.
 ///
 ///     Every operation takes the map explicitly, and the higher-order ones take the function
-///     first and the map last. Folds take the accumulator first, as a left fold does everywhere
-///     else in this codebase.
+///     first and the map last. A fold's callback takes the entry first and the accumulator last,
+///     as it does everywhere else in this codebase.
 ///
 ///     A callback is handed the key and the value as two arguments — that is what a walk of the
 ///     tree produces, so nothing is packed and unpacked to make the call.
@@ -306,14 +306,14 @@ public static class OrderedMapModule
 
     // orderedmap-fold: folder state map
     public static TState Fold<TK, TV, TState>(
-        Func<TState, TK, TV, TState> folder,
+        Func<TK, TV, TState, TState> folder,
         TState state,
         OrderedMap<TK, TV> map)
     {
         var currentState = state;
         foreach (var kvp in map)
         {
-            currentState = folder(currentState, kvp.Key, kvp.Value);
+            currentState = folder(kvp.Key, kvp.Value, currentState);
         }
         return currentState;
     }
