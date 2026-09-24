@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using System;
 using System.Collections.Generic;
 
@@ -17,8 +18,11 @@ namespace OrderedMap;
 ///     <c>(key, value)</c> tuple rather than a <see cref="KeyValuePair{TK,TV}" />. They hold the
 ///     same two things, but a tuple is a structural type that any language with tuples already
 ///     has a name for, which is what lets a caller destructure an entry without knowing anything
-///     about this assembly. A partial answer is a tuple for the same reason, with a leading
-///     <c>found</c> flag: an <c>out</c> parameter is a C# idiom and nothing else can call it.
+///     about this assembly.
+///
+///     A partial answer is <c>bool TryXyz(..., out ...)</c>, the outs marked
+///     <c>[MaybeNullWhen(false)]</c>. Bjolang imports it with <c>(out T)</c> and gets an
+///     <c>Option</c>, so an out that is left as <c>default</c> on false is never read.
 /// </summary>
 public static class OrderedMapModule
 {
@@ -93,11 +97,8 @@ public static class OrderedMapModule
     }
 
     // orderedmap-try-ref: map key
-    public static (bool found, TV value) TryGetValue<TK, TV>(OrderedMap<TK, TV> map, TK key)
-    {
-        var found = map.TryGetValue(key, out var value);
-        return (found, value);
-    }
+    public static bool TryGetValue<TK, TV>(OrderedMap<TK, TV> map, TK key, [MaybeNullWhen(false)] out TV value) =>
+        map.TryGetValue(key, out value);
 
     // orderedmap-contains?: map key
     public static bool ContainsKey<TK, TV>(OrderedMap<TK, TV> map, TK key)
@@ -190,33 +191,21 @@ public static class OrderedMapModule
     // Navigation — what the ordering buys over a hashed map
     // ---------------------------------------------------------
 
-    public static (bool found, TK key, TV value) TryGetMin<TK, TV>(OrderedMap<TK, TV> map)
-    {
-        var found = map.TryGetMin(out var key, out var value);
-        return (found, key, value);
-    }
+    public static bool TryGetMin<TK, TV>(OrderedMap<TK, TV> map, [MaybeNullWhen(false)] out TK key, [MaybeNullWhen(false)] out TV value) =>
+        map.TryGetMin(out key, out value);
 
-    public static (bool found, TK key, TV value) TryGetMax<TK, TV>(OrderedMap<TK, TV> map)
-    {
-        var found = map.TryGetMax(out var key, out var value);
-        return (found, key, value);
-    }
+    public static bool TryGetMax<TK, TV>(OrderedMap<TK, TV> map, [MaybeNullWhen(false)] out TK key, [MaybeNullWhen(false)] out TV value) =>
+        map.TryGetMax(out key, out value);
 
     /// <summary>
     ///     The entry whose key is the smallest one greater than <paramref name="key" />, which
     ///     need not itself be in the map.
     /// </summary>
-    public static (bool found, TK key, TV value) TryGetSuccessor<TK, TV>(OrderedMap<TK, TV> map, TK key)
-    {
-        var found = map.TryGetSuccessor(key, out var nextKey, out var nextValue);
-        return (found, nextKey, nextValue);
-    }
+    public static bool TryGetSuccessor<TK, TV>(OrderedMap<TK, TV> map, TK key, [MaybeNullWhen(false)] out TK nextKey, [MaybeNullWhen(false)] out TV nextValue) =>
+        map.TryGetSuccessor(key, out nextKey, out nextValue);
 
-    public static (bool found, TK key, TV value) TryGetPredecessor<TK, TV>(OrderedMap<TK, TV> map, TK key)
-    {
-        var found = map.TryGetPredecessor(key, out var prevKey, out var prevValue);
-        return (found, prevKey, prevValue);
-    }
+    public static bool TryGetPredecessor<TK, TV>(OrderedMap<TK, TV> map, TK key, [MaybeNullWhen(false)] out TK prevKey, [MaybeNullWhen(false)] out TV prevValue) =>
+        map.TryGetPredecessor(key, out prevKey, out prevValue);
 
     /// <summary>
     ///     The entries from <paramref name="min" /> to <paramref name="max" />, inclusive. Lazy:
@@ -348,19 +337,25 @@ public static class OrderedMapModule
     }
 
     /// <summary>The first entry in key order satisfying <paramref name="predicate" />, if any.</summary>
-    public static (bool found, TK key, TV value) TryFind<TK, TV>(
+    public static bool TryFind<TK, TV>(
         Func<TK, TV, bool> predicate,
-        OrderedMap<TK, TV> map)
+        OrderedMap<TK, TV> map,
+        [MaybeNullWhen(false)] out TK key,
+        [MaybeNullWhen(false)] out TV value)
     {
         foreach (var kvp in map)
         {
             if (predicate(kvp.Key, kvp.Value))
             {
-                return (true, kvp.Key, kvp.Value);
+                key = kvp.Key;
+                value = kvp.Value;
+                return true;
             }
         }
 
-        return (false, default!, default!);
+        key = default;
+        value = default;
+        return false;
     }
 
     // ---------------------------------------------------------

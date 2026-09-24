@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using System;
 using System.Collections.Generic;
 
@@ -74,11 +75,8 @@ public static class TransientOrderedMapModule
         return map.TryGetValue(key, out var value) ? value : fallback;
     }
 
-    public static (bool found, TV value) TryGetValue<TK, TV>(TransientOrderedMap<TK, TV> map, TK key)
-    {
-        var found = map.TryGetValue(key, out var value);
-        return (found, value);
-    }
+    public static bool TryGetValue<TK, TV>(TransientOrderedMap<TK, TV> map, TK key, [MaybeNullWhen(false)] out TV value) =>
+        map.TryGetValue(key, out value);
 
     public static bool ContainsKey<TK, TV>(TransientOrderedMap<TK, TV> map, TK key)
     {
@@ -95,29 +93,17 @@ public static class TransientOrderedMapModule
         foreach (var kvp in map) yield return kvp.Value;
     }
 
-    public static (bool found, TK key, TV value) TryGetMin<TK, TV>(TransientOrderedMap<TK, TV> map)
-    {
-        var found = map.TryGetMin(out var key, out var value);
-        return (found, key, value);
-    }
+    public static bool TryGetMin<TK, TV>(TransientOrderedMap<TK, TV> map, [MaybeNullWhen(false)] out TK key, [MaybeNullWhen(false)] out TV value) =>
+        map.TryGetMin(out key, out value);
 
-    public static (bool found, TK key, TV value) TryGetMax<TK, TV>(TransientOrderedMap<TK, TV> map)
-    {
-        var found = map.TryGetMax(out var key, out var value);
-        return (found, key, value);
-    }
+    public static bool TryGetMax<TK, TV>(TransientOrderedMap<TK, TV> map, [MaybeNullWhen(false)] out TK key, [MaybeNullWhen(false)] out TV value) =>
+        map.TryGetMax(out key, out value);
 
-    public static (bool found, TK key, TV value) TryGetSuccessor<TK, TV>(TransientOrderedMap<TK, TV> map, TK key)
-    {
-        var found = map.TryGetSuccessor(key, out var nextKey, out var nextValue);
-        return (found, nextKey, nextValue);
-    }
+    public static bool TryGetSuccessor<TK, TV>(TransientOrderedMap<TK, TV> map, TK key, [MaybeNullWhen(false)] out TK nextKey, [MaybeNullWhen(false)] out TV nextValue) =>
+        map.TryGetSuccessor(key, out nextKey, out nextValue);
 
-    public static (bool found, TK key, TV value) TryGetPredecessor<TK, TV>(TransientOrderedMap<TK, TV> map, TK key)
-    {
-        var found = map.TryGetPredecessor(key, out var prevKey, out var prevValue);
-        return (found, prevKey, prevValue);
-    }
+    public static bool TryGetPredecessor<TK, TV>(TransientOrderedMap<TK, TV> map, TK key, [MaybeNullWhen(false)] out TK prevKey, [MaybeNullWhen(false)] out TV prevValue) =>
+        map.TryGetPredecessor(key, out prevKey, out prevValue);
 
     public static IEnumerable<(TK, TV)> Range<TK, TV>(TransientOrderedMap<TK, TV> map, TK min, TK max)
     {
@@ -266,19 +252,25 @@ public static class TransientOrderedMapModule
         return !Iter<TK, TV>((key, value) => !predicate(key, value), map);
     }
 
-    public static (bool found, TK key, TV value) TryFind<TK, TV>(
+    public static bool TryFind<TK, TV>(
         Func<TK, TV, bool> predicate,
-        TransientOrderedMap<TK, TV> map)
+        TransientOrderedMap<TK, TV> map,
+        [MaybeNullWhen(false)] out TK key,
+        [MaybeNullWhen(false)] out TV value)
     {
         foreach (var kvp in map)
         {
             if (predicate(kvp.Key, kvp.Value))
             {
-                return (true, kvp.Key, kvp.Value);
+                key = kvp.Key;
+                value = kvp.Value;
+                return true;
             }
         }
 
-        return (false, default!, default!);
+        key = default;
+        value = default;
+        return false;
     }
 
     // ---------------------------------------------------------
