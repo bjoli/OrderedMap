@@ -30,6 +30,9 @@ public static class OrderedMapModule
     // Construction
     // ---------------------------------------------------------
 
+    /// <summary>What the map orders its keys by.</summary>
+    public static IComparer<TK> Comparer<TK, TV>(OrderedMap<TK, TV> map) => map.Comparer;
+
     // orderedmap-empty
     public static OrderedMap<TK, TV> Empty<TK, TV>(IComparer<TK>? comparer = null)
     {
