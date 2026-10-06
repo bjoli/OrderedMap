@@ -29,11 +29,10 @@ public static class Scanners
         return keys.Length;
     }
 
-    // Generic AVX2 Scan implementation for Integers
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static unsafe int ScanAvx2GreaterOrEqual<T>(ReadOnlySpan<T> keys, T target) where T : unmanaged, IComparisonOperators<T, T, bool>, IDecrementOperators<T>, INumberBase<T>
+    private static unsafe int ScanAvx2GreaterOrEqual<T>(ReadOnlySpan<T> keys, T target) where T : unmanaged, IComparisonOperators<T, T, bool>
     {
-        var vTarget = Vector256.Create(target - T.One);
+        var vTarget = Vector256.Create(target);
         var i = 0;
         var len = keys.Length;
         int step = Vector256<T>.Count;
@@ -43,7 +42,7 @@ public static class Scanners
             fixed (T* ptr = keys)
             {
                 var vData = Vector256.Load(ptr + i);
-                var mask = Vector256.GreaterThan(vData, vTarget);
+                var mask = Vector256.GreaterThanOrEqual(vData, vTarget);
                 uint m = mask.ExtractMostSignificantBits();
 
                 if (m != 0)
@@ -130,35 +129,9 @@ public static class Scanners
         return LinearScanGreater(keys.Slice(i), target) + i;
     }
 
-    // Floating-point GreaterOrEqual doesn't use target - 1
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static unsafe int ScanAvx2GreaterOrEqualFloat<T>(ReadOnlySpan<T> keys, T target) where T : unmanaged, IComparisonOperators<T, T, bool>
-    {
-        var vTarget = Vector256.Create(target);
-        var i = 0;
-        var len = keys.Length;
-        int step = Vector256<T>.Count;
-
-        for (; i <= len - step; i += step)
-        {
-            fixed (T* ptr = keys)
-            {
-                var vData = Vector256.Load(ptr + i);
-                var mask = Vector256.GreaterThanOrEqual(vData, vTarget);
-                uint m = mask.ExtractMostSignificantBits();
-
-                if (m != 0)
-                {
-                    return i + BitOperations.TrailingZeroCount(m);
-                }
-            }
-        }
-        return LinearScanGreaterOrEqual(keys.Slice(i), target) + i;
-    }
-
     // Public API for Integer types
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static int FindFirstGreaterOrEqualInt<T>(ReadOnlySpan<T> keys, T target) where T : unmanaged, IComparisonOperators<T, T, bool>, IDecrementOperators<T>, INumberBase<T>
+    public static int FindFirstGreaterOrEqualInt<T>(ReadOnlySpan<T> keys, T target) where T : unmanaged, IComparisonOperators<T, T, bool>
     {
         if (!Vector256.IsHardwareAccelerated || keys.Length < Vector256<T>.Count)
             return LinearScanGreaterOrEqual(keys, target);
@@ -187,8 +160,8 @@ public static class Scanners
             return LinearScanGreaterOrEqual(keys, target);
 
         return Vector512.IsHardwareAccelerated
-            ? ScanAvx512GreaterOrEqual(keys, target) // AVX512 has true GE
-            : ScanAvx2GreaterOrEqualFloat(keys, target);
+            ? ScanAvx512GreaterOrEqual(keys, target)
+            : ScanAvx2GreaterOrEqual(keys, target);
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]

@@ -9,6 +9,11 @@ public sealed class OrderedMapBuilder<TK, TV>
     private readonly List<KeyValuePair<TK, TV>> _items;
     private readonly IComparer<TK> _comparer;
 
+    // Every key so far was greater than the one before it. Walking a map, or mapping
+    // over one, appends in key order, and Build then needs neither a sort nor a
+    // pass for duplicates.
+    private bool _ascending = true;
+
     public OrderedMapBuilder(IComparer<TK>? comparer = null)
     {
         _items = new List<KeyValuePair<TK, TV>>();
@@ -23,12 +28,16 @@ public sealed class OrderedMapBuilder<TK, TV>
 
     public void Add(TK key, TV value)
     {
+        if (_ascending && _items.Count > 0 && _comparer.Compare(_items[^1].Key, key) >= 0)
+        {
+            _ascending = false;
+        }
         _items.Add(new KeyValuePair<TK, TV>(key, value));
     }
 
     public void AddRange(IEnumerable<KeyValuePair<TK, TV>> range)
     {
-        _items.AddRange(range);
+        foreach (var kvp in range) Add(kvp.Key, kvp.Value);
     }
 
     /// <summary>
@@ -45,8 +54,14 @@ public sealed class OrderedMapBuilder<TK, TV>
             return OrderedMap<TK, TV>.Empty(_comparer);
         }
 
-        // We need a stable sort. Since List<T>.Sort() and Array.Sort() are unstable,
-        // we attach the original index to preserve insertion order for duplicate keys.
+        if (_ascending)
+        {
+            ReadOnlySpan<KeyValuePair<TK, TV>> items = CollectionsMarshal.AsSpan(_items);
+            return new OrderedMap<TK, TV>(BuildNodes(items), _comparer, items.Length);
+        }
+
+        // Array.Sort is unstable, so the original index breaks ties: among equal keys the
+        // last one appended sorts last, and wins below.
         var array = new (KeyValuePair<TK, TV> item, int index)[_items.Count];
         for (int i = 0; i < _items.Count; i++)
         {
@@ -63,27 +78,26 @@ public sealed class OrderedMapBuilder<TK, TV>
             return cmp;
         });
 
-        // Compact duplicates (last one wins, based on original insertion order / stable sort)
+        var unique = new KeyValuePair<TK, TV>[array.Length];
         int uniqueCount = 0;
         for (int i = 0; i < array.Length; i++)
         {
-            if (uniqueCount > 0 && _comparer.Compare(array[i].item.Key, array[uniqueCount - 1].item.Key) == 0)
+            if (uniqueCount > 0 && _comparer.Compare(array[i].item.Key, unique[uniqueCount - 1].Key) == 0)
             {
-                // Overwrite the previous one
-                array[uniqueCount - 1] = array[i];
+                unique[uniqueCount - 1] = array[i].item;
             }
             else
             {
-                array[uniqueCount++] = array[i];
+                unique[uniqueCount++] = array[i].item;
             }
         }
 
-        var uniqueSpan = new ReadOnlySpan<(KeyValuePair<TK, TV> item, int index)>(array, 0, uniqueCount);
-        var root = BuildNodes(uniqueSpan);
-        return new OrderedMap<TK, TV>(root, _comparer, uniqueCount);
+        var uniqueSpan = new ReadOnlySpan<KeyValuePair<TK, TV>>(unique, 0, uniqueCount);
+        return new OrderedMap<TK, TV>(BuildNodes(uniqueSpan), _comparer, uniqueCount);
     }
 
-    private Node<TK> BuildNodes(ReadOnlySpan<(KeyValuePair<TK, TV> item, int index)> span)
+    /// <summary>The tree over <paramref name="span" />, which is in strictly ascending key order.</summary>
+    private Node<TK> BuildNodes(ReadOnlySpan<KeyValuePair<TK, TV>> span)
     {
         // 1. Build leaf nodes
         int numLeaves = (span.Length + LeafNode<TK, TV>.Capacity - 1) / LeafNode<TK, TV>.Capacity;
@@ -97,8 +111,8 @@ public sealed class OrderedMapBuilder<TK, TV>
             var leaf = new LeafNode<TK, TV>(OwnerId.None);
             for (int j = 0; j < count; j++)
             {
-                leaf.Keys![j] = span[offset + j].item.Key;
-                leaf.Values[j] = span[offset + j].item.Value;
+                leaf.Keys![j] = span[offset + j].Key;
+                leaf.Values[j] = span[offset + j].Value;
             }
             leaf.SetCount(count);
             leaves[i] = leaf;
