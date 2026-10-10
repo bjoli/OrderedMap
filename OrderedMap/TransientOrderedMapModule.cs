@@ -295,8 +295,9 @@ public static class TransientOrderedMapModule
 }
 
 /// <summary>
-///     A position in a walk of a <see cref="TransientOrderedMap{TK, TV}" />. The struct
-///     enumerator in a heap cell, for the reason <see cref="OrderedMapCursor{TK, TV}" /> is.
+///     A position in a walk of a <see cref="TransientOrderedMap{TK, TV}" />: the struct
+///     enumerator in a heap cell, which <see cref="TransientOrderedMapModule.CursorDone{TK, TV}" />
+///     advances in place.
 /// </summary>
 public sealed class TransientOrderedMapCursor<TK, TV>
 {

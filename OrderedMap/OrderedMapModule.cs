@@ -1,4 +1,5 @@
 using System.Diagnostics.CodeAnalysis;
+using System.Runtime.CompilerServices;
 using System;
 using System.Collections.Generic;
 
@@ -365,39 +366,19 @@ public static class OrderedMapModule
     // Walking
     // ---------------------------------------------------------
 
+    /// <summary>The cursor on the first entry of the map, or a done cursor.</summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static OrderedMapCursor<TK, TV> Cursor<TK, TV>(OrderedMap<TK, TV> map) =>
-        new OrderedMapCursor<TK, TV>(map);
+        OrderedMapCursor<TK, TV>.Start(map.Root);
 
-    /// <summary>
-    ///     Advances the cursor, and answers whether it ran off the end.
-    ///
-    ///     The advance happens here rather than in a step of its own: a walk asks "is there
-    ///     more?" exactly once per entry, so folding the two together is what lets the whole
-    ///     traversal allocate nothing after the cursor itself.
-    /// </summary>
-    public static bool CursorDone<TK, TV>(OrderedMapCursor<TK, TV> cursor) => !cursor.Enumerator.MoveNext();
+    /// <summary>True when the cursor is past the last entry. Does not move the cursor.</summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static bool CursorDone<TK, TV>(OrderedMapCursor<TK, TV> cursor) => cursor.Done;
 
-    public static (TK, TV) CursorCurrent<TK, TV>(OrderedMapCursor<TK, TV> cursor)
-    {
-        var current = cursor.Enumerator.Current;
-        return (current.Key, current.Value);
-    }
-}
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static (TK, TV) CursorCurrent<TK, TV>(OrderedMapCursor<TK, TV> cursor) => cursor.Current;
 
-/// <summary>
-///     A position in a walk of an <see cref="OrderedMap{TK, TV}" />, in key order.
-///
-///     <see cref="BTreeEnumerator{TK, TV}" /> is a struct, which is what keeps a <c>foreach</c>
-///     allocation-free — and exactly what makes it useless to a caller that has to *hold* the
-///     position, since every copy advances independently. This is that struct in a heap cell:
-///     one allocation for the walk, none per entry.
-/// </summary>
-public sealed class OrderedMapCursor<TK, TV>
-{
-    public BTreeEnumerator<TK, TV> Enumerator;
-
-    public OrderedMapCursor(OrderedMap<TK, TV> map)
-    {
-        Enumerator = map.GetEnumerator();
-    }
+    /// <summary>The cursor on the next entry. The cursor given does not change.</summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static OrderedMapCursor<TK, TV> CursorNext<TK, TV>(OrderedMapCursor<TK, TV> cursor) => cursor.Next();
 }
