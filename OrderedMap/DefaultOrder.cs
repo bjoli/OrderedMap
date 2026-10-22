@@ -21,6 +21,7 @@ namespace OrderedMap;
 /// <c>IComparable&lt;T&gt;</c>. Pass a comparer explicitly to get culture back.
 /// </para>
 /// </remarks>
+[NonUserCode]
 internal static class DefaultOrder
 {
     public static IComparer<T> For<T>() =>

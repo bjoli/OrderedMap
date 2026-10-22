@@ -6,6 +6,7 @@ namespace OrderedMap;
 
 
 
+[NonUserCode]
 public struct BTreeEnumerable<TK, TV> : IEnumerable<KeyValuePair<TK, TV>>
 {
     private readonly Node<TK> _root;
@@ -35,17 +36,20 @@ public struct BTreeEnumerable<TK, TV> : IEnumerable<KeyValuePair<TK, TV>>
 // all int-indexed data structures (or bit partitioned ones).
 // This should be enough for anyone.
 [InlineArray(16)]
+[NonUserCode]
 internal struct IterNodeBuffer<TK>
 {
     private Node<TK> _element0;
 }
 
 [InlineArray(16)]
+[NonUserCode]
 internal struct IterIndexBuffer
 {
     private int _element0;
 }
 
+[NonUserCode]
 public struct BTreeEnumerator<TK, TV> : IEnumerator<KeyValuePair<TK, TV>>
     {
         private readonly IComparer<TK> _comparer;

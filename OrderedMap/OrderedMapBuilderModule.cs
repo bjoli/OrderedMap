@@ -8,6 +8,7 @@ namespace OrderedMap;
 ///     A builder is the bulk path. It collects into a flat list and sorts it into a B-tree in
 ///     one go, where setting a key on the map itself pays a copy down the tree per pair.
 /// </summary>
+[NonUserCode]
 public static class OrderedMapBuilderModule
 {
     // orderedmapbuilder-empty

@@ -25,6 +25,7 @@ namespace OrderedMap;
 ///     <c>[MaybeNullWhen(false)]</c>. Bjolang imports it with <c>(out T)</c> and gets an
 ///     <c>Option</c>, so an out that is left as <c>default</c> on false is never read.
 /// </summary>
+[NonUserCode]
 public static class OrderedMapModule
 {
     // ---------------------------------------------------------
@@ -337,7 +338,7 @@ public static class OrderedMapModule
 
     public static bool Exists<TK, TV>(Func<TK, TV, bool> predicate, OrderedMap<TK, TV> map)
     {
-        return !Iter<TK, TV>((key, value) => !predicate(key, value), map);
+        return !Iter<TK, TV>([NonUserCode] (key, value) => !predicate(key, value), map);
     }
 
     /// <summary>The first entry in key order satisfying <paramref name="predicate" />, if any.</summary>

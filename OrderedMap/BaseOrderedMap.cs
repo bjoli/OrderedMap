@@ -4,6 +4,7 @@ using System.Collections.Generic;
 
 namespace OrderedMap;
 
+[NonUserCode]
 public abstract class BaseOrderedMap<TK, TV> : IEnumerable<KeyValuePair<TK, TV>>
 {
     internal Node<TK> Root;

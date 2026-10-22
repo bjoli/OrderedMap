@@ -5,6 +5,7 @@ using System.Runtime.InteropServices;
 
 namespace OrderedMap
 {
+    [NonUserCode]
     public static class BTreeFunctions
     {
         // ---------------------------------------------------------

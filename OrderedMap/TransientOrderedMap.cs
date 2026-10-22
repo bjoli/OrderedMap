@@ -2,6 +2,7 @@ using System.Collections.Generic;
 
 namespace OrderedMap;
 
+[NonUserCode]
 public sealed class TransientOrderedMap<TK, TV> : BaseOrderedMap<TK, TV>
 {
     // This is mutable, but we treat it as readonly for the ID generation logic usually.

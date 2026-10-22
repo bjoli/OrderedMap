@@ -16,6 +16,7 @@ namespace OrderedMap;
 ///     follows the path from the root again. The tree is a few levels deep, and a leaf holds
 ///     many entries, so this costs little for each entry.
 /// </summary>
+[NonUserCode]
 public readonly struct OrderedMapCursor<TK, TV>
 {
     // The depth of the leaf is in the low bits of the path, and the child index at each
@@ -154,6 +155,7 @@ public readonly struct OrderedMapCursor<TK, TV>
     }
 
     [InlineArray(MaxDepth)]
+    [NonUserCode]
     private struct PathNodes
     {
         private Node<TK> _element0;

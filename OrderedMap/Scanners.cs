@@ -6,6 +6,7 @@ using System.Runtime.Intrinsics.X86;
 
 namespace OrderedMap;
 
+[NonUserCode]
 public static class Scanners
 {
     // Generic linear scan fallback

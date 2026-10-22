@@ -14,6 +14,7 @@ namespace OrderedMap;
 ///     the nodes, which is what lets an edit skip the copy and what makes
 ///     <see cref="ToPersistent{TK,TV}" /> O(1).
 /// </summary>
+[NonUserCode]
 public static class TransientOrderedMapModule
 {
     // ---------------------------------------------------------
@@ -249,7 +250,7 @@ public static class TransientOrderedMapModule
 
     public static bool Exists<TK, TV>(Func<TK, TV, bool> predicate, TransientOrderedMap<TK, TV> map)
     {
-        return !Iter<TK, TV>((key, value) => !predicate(key, value), map);
+        return !Iter<TK, TV>([NonUserCode] (key, value) => !predicate(key, value), map);
     }
 
     public static bool TryFind<TK, TV>(
@@ -299,6 +300,7 @@ public static class TransientOrderedMapModule
 ///     enumerator in a heap cell, which <see cref="TransientOrderedMapModule.CursorDone{TK, TV}" />
 ///     advances in place.
 /// </summary>
+[NonUserCode]
 public sealed class TransientOrderedMapCursor<TK, TV>
 {
     public BTreeEnumerator<TK, TV> Enumerator;

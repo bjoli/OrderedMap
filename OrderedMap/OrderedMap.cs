@@ -3,6 +3,7 @@ using System.Collections.Generic;
 
 namespace OrderedMap;
 
+[NonUserCode]
 public sealed class OrderedMap<TK, TV> : BaseOrderedMap<TK, TV>, IEquatable<OrderedMap<TK, TV>>
 {
     internal OrderedMap(Node<TK> root, IComparer<TK> comparer, int count) 

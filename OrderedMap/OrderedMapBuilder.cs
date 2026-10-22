@@ -4,6 +4,7 @@ using System.Runtime.InteropServices;
 
 namespace OrderedMap;
 
+[NonUserCode]
 public sealed class OrderedMapBuilder<TK, TV>
 {
     private readonly List<KeyValuePair<TK, TV>> _items;
@@ -68,7 +69,7 @@ public sealed class OrderedMapBuilder<TK, TV>
             array[i] = (_items[i], i);
         }
 
-        Array.Sort(array, (a, b) =>
+        Array.Sort(array, [NonUserCode] (a, b) =>
         {
             int cmp = _comparer.Compare(a.item.Key, b.item.Key);
             if (cmp == 0)
