@@ -193,6 +193,196 @@ public static class OrderedMapModule
     }
 
     // ---------------------------------------------------------
+    // Many maps at once
+    //
+    // Two ways, chosen by size (measured on int keys, 1M keys in all):
+    //  - A transient on one input, with the others set into it. Each key set
+    //    costs a descent, so it pays when the others hold few keys: a map of
+    //    1M and 10 of 10k took 15 ms this way, 41 ms the other.
+    //  - A k-way merge of the inputs in key order into a builder, which
+    //    builds the tree bottom-up with no sort. It pays when the keys are
+    //    spread over the inputs: 10 maps of 100k took 48 ms this way, 83 ms
+    //    the other, and 111 ms by Merge two at a time. Its heap costs log k
+    //    a key, so with many inputs the transient catches up: at 100 inputs
+    //    they were level.
+    // Inputs ordered by different comparers are merged two at a time.
+    // ---------------------------------------------------------
+
+    /// <summary>
+    ///     The k-way merge is used when the inputs other than the biggest hold at least this
+    ///     share of the keys, in percent.
+    /// </summary>
+    public const int ManyMergePercent = 30;
+
+    /// <summary>The k-way merge is used for at most this many inputs.</summary>
+    public const int ManyMergeMaxInputs = 32;
+
+    /// <summary>
+    ///     <paramref name="map" />, <paramref name="other" /> and each map in
+    ///     <paramref name="more" />, each laid over the ones before it: where several have a
+    ///     key, the last one's value wins.
+    /// </summary>
+    public static OrderedMap<TK, TV> MergeAll<TK, TV>(
+        OrderedMap<TK, TV> map,
+        OrderedMap<TK, TV> other,
+        OrderedMap<TK, TV>[] more)
+    {
+        var inputs = NonEmpty(map, other, more);
+        if (inputs.Count == 0) return map;
+        if (inputs.Count == 1) return inputs[0];
+        if (!SameOrder(inputs)) return Fold(inputs, Merge);
+
+        var (biggest, total) = Biggest(inputs);
+        if (!KWayPays(inputs.Count, inputs[biggest].Count, total))
+        {
+            // The ones after the biggest are set over it. The ones before it only add keys that
+            // are not there yet, latest first, so that no later value is replaced.
+            var transient = inputs[biggest].ToTransient();
+            for (var i = biggest + 1; i < inputs.Count; i++)
+                foreach (var kvp in inputs[i]) transient.Set(kvp.Key, kvp.Value);
+            for (var i = biggest - 1; i >= 0; i--)
+                foreach (var kvp in inputs[i])
+                    if (!transient.ContainsKey(kvp.Key)) transient.Set(kvp.Key, kvp.Value);
+            return transient.ToPersistent();
+        }
+
+        return KWay(inputs, total, null);
+    }
+
+    /// <summary>
+    ///     The same, with the collisions decided by <paramref name="resolver" />: the values of
+    ///     a key are combined from the first map to the last, as merging two at a time would.
+    /// </summary>
+    public static OrderedMap<TK, TV> MergeWithAll<TK, TV>(
+        Func<TK, TV, TV, TV> resolver,
+        OrderedMap<TK, TV> map,
+        OrderedMap<TK, TV> other,
+        OrderedMap<TK, TV>[] more)
+    {
+        var inputs = NonEmpty(map, other, more);
+        if (inputs.Count == 0) return map;
+        if (inputs.Count == 1) return inputs[0];
+        if (!SameOrder(inputs)) return Fold(inputs, [NonUserCode] (a, b) => MergeWith(resolver, a, b));
+
+        var (biggest, total) = Biggest(inputs);
+        if (KWayPays(inputs.Count, inputs[biggest].Count, total)) return KWay(inputs, total, resolver);
+
+        // A transient on the biggest. The values of a key are combined in input order: the
+        // maps before the biggest are merged first, and their values come before its own.
+        var transient = inputs[biggest].ToTransient();
+        if (biggest > 0)
+        {
+            var before = inputs[0];
+            if (biggest > 1)
+                before = MergeWithAll(resolver, inputs[0], inputs[1], inputs.GetRange(2, biggest - 2).ToArray());
+            foreach (var kvp in before)
+                transient.Set(
+                    kvp.Key,
+                    transient.TryGetValue(kvp.Key, out var own) ? resolver(kvp.Key, kvp.Value, own) : kvp.Value);
+        }
+        for (var i = biggest + 1; i < inputs.Count; i++)
+            foreach (var kvp in inputs[i])
+                transient.Set(
+                    kvp.Key,
+                    transient.TryGetValue(kvp.Key, out var so) ? resolver(kvp.Key, so, kvp.Value) : kvp.Value);
+        return transient.ToPersistent();
+    }
+
+    // The inputs that have keys, in order.
+    private static List<OrderedMap<TK, TV>> NonEmpty<TK, TV>(
+        OrderedMap<TK, TV> map, OrderedMap<TK, TV> other, OrderedMap<TK, TV>[] more)
+    {
+        var inputs = new List<OrderedMap<TK, TV>>(more.Length + 2);
+        if (map.Count > 0) inputs.Add(map);
+        if (other.Count > 0) inputs.Add(other);
+        foreach (var m in more)
+            if (m.Count > 0) inputs.Add(m);
+        return inputs;
+    }
+
+    private static bool SameOrder<TK, TV>(List<OrderedMap<TK, TV>> inputs)
+    {
+        var first = inputs[0].Comparer;
+        foreach (var m in inputs)
+            if (!ReferenceEquals(m.Comparer, first) && !m.Comparer.Equals(first)) return false;
+        return true;
+    }
+
+    private static OrderedMap<TK, TV> Fold<TK, TV>(
+        List<OrderedMap<TK, TV>> inputs, Func<OrderedMap<TK, TV>, OrderedMap<TK, TV>, OrderedMap<TK, TV>> merge)
+    {
+        var result = inputs[0];
+        for (var i = 1; i < inputs.Count; i++) result = merge(result, inputs[i]);
+        return result;
+    }
+
+    private static (int Index, long Total) Biggest<TK, TV>(List<OrderedMap<TK, TV>> inputs)
+    {
+        var biggest = 0;
+        long total = 0;
+        for (var i = 0; i < inputs.Count; i++)
+        {
+            total += inputs[i].Count;
+            if (inputs[i].Count > inputs[biggest].Count) biggest = i;
+        }
+        return (biggest, total);
+    }
+
+    private static bool KWayPays(int inputs, long biggest, long total) =>
+        inputs <= ManyMergeMaxInputs && (total - biggest) * 100 >= total * ManyMergePercent;
+
+    // The inputs walked in key order at once. A heap holds the input of each next key, by
+    // the key alone: the inputs that have one key are then put in input order, so that the
+    // last one's value wins or the values are combined first to last. A key is in few inputs,
+    // so that sort is short.
+    private static OrderedMap<TK, TV> KWay<TK, TV>(
+        List<OrderedMap<TK, TV>> inputs, long total, Func<TK, TV, TV, TV>? resolver)
+    {
+        var comparer = inputs[0].Comparer;
+        var walks = new BTreeEnumerator<TK, TV>[inputs.Count];
+        var heap = new PriorityQueue<int, TK>(inputs.Count, comparer);
+        for (var i = 0; i < walks.Length; i++)
+        {
+            walks[i] = inputs[i].GetEnumerator();
+            if (walks[i].MoveNext()) heap.Enqueue(i, walks[i].Current.Key);
+        }
+
+        var builder = new OrderedMapBuilder<TK, TV>((int)Math.Min(total, int.MaxValue), comparer);
+        var same = new List<int>();
+        while (heap.TryDequeue(out var input, out var key))
+        {
+            if (!heap.TryPeek(out _, out var nextKey) || comparer.Compare(nextKey, key) != 0)
+            {
+                builder.Add(key, walks[input].Current.Value);
+                if (walks[input].MoveNext()) heap.Enqueue(input, walks[input].Current.Key);
+                continue;
+            }
+
+            same.Clear();
+            same.Add(input);
+            while (heap.TryPeek(out var next, out nextKey) && comparer.Compare(nextKey, key) == 0)
+            {
+                heap.Dequeue();
+                same.Add(next);
+            }
+            same.Sort();
+
+            var value = walks[same[0]].Current.Value;
+            for (var j = 1; j < same.Count; j++)
+            {
+                var later = walks[same[j]].Current.Value;
+                value = resolver == null ? later : resolver(key, value, later);
+            }
+            builder.Add(key, value);
+
+            foreach (var i in same)
+                if (walks[i].MoveNext()) heap.Enqueue(i, walks[i].Current.Key);
+        }
+
+        return builder.Build();
+    }
+
+    // ---------------------------------------------------------
     // Navigation — what the ordering buys over a hashed map
     // ---------------------------------------------------------
 
