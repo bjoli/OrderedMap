@@ -159,6 +159,9 @@ public static class OrderedMapModule
         return transient.ToPersistent();
     }
 
+    /// <summary>(std parallel)'s chunks: about k maps in key order, sharing the nodes.</summary>
+    public static OrderedMap<TK, TV>[] Split<TK, TV>(OrderedMap<TK, TV> map, int k) => map.Split(k);
+
     /// <summary>
     ///     <paramref name="other" /> laid over <paramref name="map" />: where both have a key, the
     ///     right-hand value wins.

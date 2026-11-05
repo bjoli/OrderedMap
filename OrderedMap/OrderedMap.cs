@@ -6,6 +6,7 @@ namespace OrderedMap;
 [NonUserCode]
 public sealed class OrderedMap<TK, TV> : BaseOrderedMap<TK, TV>, IEquatable<OrderedMap<TK, TV>>
 {
+    // A count of -1: not counted yet, see Count.
     internal OrderedMap(Node<TK> root, IComparer<TK> comparer, int count) 
         : base(root, comparer, count) { }
 
@@ -92,6 +93,23 @@ public sealed class OrderedMap<TK, TV> : BaseOrderedMap<TK, TV>, IEquatable<Orde
         var newRoot = BTreeFunctions.Remove<TK,TV>(Root, key, Comparer, OwnerId.None, out bool removed);
         if (!removed) return this;
         return new OrderedMap<TK, TV>(newRoot, Comparer, Count - 1);
+    }
+
+    /// <summary>
+    ///     About <paramref name="k" /> maps, in key order, that together hold each entry of this
+    ///     one once, under the same comparer: every key of a part is less than every key of the
+    ///     next. They share this map's nodes. Fewer when the tree has fewer nodes, and at least
+    ///     one: this map, when its root is a leaf or <paramref name="k" /> is 1 or less. The parts'
+    ///     sizes are close, not equal: a node is not cut. The split visits no leaf; a part's count
+    ///     is taken the first time it is asked for.
+    /// </summary>
+    public OrderedMap<TK, TV>[] Split(int k)
+    {
+        var pieces = BTreeSplit<TK>.Split(Root, k);
+        if (pieces.Length == 1) return [this];
+        var parts = new OrderedMap<TK, TV>[pieces.Length];
+        for (var i = 0; i < pieces.Length; i++) parts[i] = new OrderedMap<TK, TV>(pieces[i], Comparer, -1);
+        return parts;
     }
 
     public TransientOrderedMap<TK, TV> ToTransient()
