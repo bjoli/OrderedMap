@@ -162,6 +162,9 @@ public static class OrderedMapModule
     /// <summary>(std parallel)'s chunks: about k maps in key order, sharing the nodes.</summary>
     public static OrderedMap<TK, TV>[] Split<TK, TV>(OrderedMap<TK, TV> map, int k) => map.Split(k);
 
+    /// <summary>(std parallel)'s join: maps in key order, in one map. See OrderedMap.Concat.</summary>
+    public static OrderedMap<TK, TV> Concat<TK, TV>(OrderedMap<TK, TV>[] maps) => OrderedMap<TK, TV>.Concat(maps);
+
     /// <summary>
     ///     <paramref name="other" /> laid over <paramref name="map" />: where both have a key, the
     ///     right-hand value wins.
@@ -439,12 +442,8 @@ public static class OrderedMapModule
         Func<TK, TV, TV2> mapper,
         OrderedMap<TK, TV> map)
     {
-        var builder = new OrderedMapBuilder<TK, TV2>(map.Count, map.Comparer);
-        foreach (var kvp in map)
-        {
-            builder.Add(kvp.Key, mapper(kvp.Key, kvp.Value));
-        }
-        return builder.Build();
+        // A tree of the same shape: see BTreeRebuild.
+        return new OrderedMap<TK, TV2>(BTreeRebuild<TK, TV>.Map(map.Root, mapper), map.Comparer, map.Count);
     }
 
     /// <summary>The functor's map: the value moves, the key rides along.</summary>
@@ -452,12 +451,7 @@ public static class OrderedMapModule
         Func<TV, TV2> mapper,
         OrderedMap<TK, TV> map)
     {
-        var builder = new OrderedMapBuilder<TK, TV2>(map.Count, map.Comparer);
-        foreach (var kvp in map)
-        {
-            builder.Add(kvp.Key, mapper(kvp.Value));
-        }
-        return builder.Build();
+        return new OrderedMap<TK, TV2>(BTreeRebuild<TK, TV>.MapValues(map.Root, mapper), map.Comparer, map.Count);
     }
 
     // orderedmap-map-entries: the mapper may move the key, so this is a rebuild
@@ -475,20 +469,15 @@ public static class OrderedMapModule
         return builder.Build();
     }
 
-    // orderedmap-filter: predicate map
+    // orderedmap-filter: predicate map. The map itself when every entry is kept; see
+    // BTreeRebuild.
     public static OrderedMap<TK, TV> Filter<TK, TV>(
         Func<TK, TV, bool> predicate,
         OrderedMap<TK, TV> map)
     {
-        var builder = new OrderedMapBuilder<TK, TV>(map.Count, map.Comparer);
-        foreach (var kvp in map)
-        {
-            if (predicate(kvp.Key, kvp.Value))
-            {
-                builder.Add(kvp.Key, kvp.Value);
-            }
-        }
-        return builder.Build();
+        var (root, count) = BTreeRebuild<TK, TV>.Filter(map.Root, predicate);
+        if (root == null) return map;
+        return count == 0 ? OrderedMap<TK, TV>.Empty(map.Comparer) : new OrderedMap<TK, TV>(root, map.Comparer, count);
     }
 
     // orderedmap-fold: folder state map

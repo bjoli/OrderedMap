@@ -112,6 +112,27 @@ public sealed class OrderedMap<TK, TV> : BaseOrderedMap<TK, TV>, IEquatable<Orde
         return parts;
     }
 
+    /// <summary>
+    ///     The entries of <paramref name="maps" /> in one map, under the first map's comparer:
+    ///     what <see cref="Split" /> cut, joined again. Every key of a map must be less than every
+    ///     key of the next. The maps' leaves are kept, under new internal nodes: no entry is
+    ///     compared or copied, but for the few leaves that are joined with a small neighbour.
+    /// </summary>
+    /// <exception cref="ArgumentException">
+    ///     When there are no maps, or a map has a key that is not less than every key of the next.
+    /// </exception>
+    public static OrderedMap<TK, TV> Concat(OrderedMap<TK, TV>[] maps)
+    {
+        if (maps.Length == 0) throw new ArgumentException("Concat needs at least one map.", nameof(maps));
+        if (maps.Length == 1) return maps[0];
+
+        var comparer = maps[0].Comparer;
+        var roots = new Node<TK>[maps.Length];
+        for (var i = 0; i < maps.Length; i++) roots[i] = maps[i].Root;
+        var (root, count) = BTreeConcat<TK, TV>.Concat(roots, comparer);
+        return count == 0 ? Empty(comparer) : new OrderedMap<TK, TV>(root, comparer, count);
+    }
+
     public TransientOrderedMap<TK, TV> ToTransient()
     {
         return new TransientOrderedMap<TK, TV>(Root, Comparer, Count);
